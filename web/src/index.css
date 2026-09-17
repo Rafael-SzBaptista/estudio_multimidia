@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Anton", sans-serif;
+  --font-sans: "Anton", sans-serif;
+  --font-slide: "Anton", sans-serif;
+  --color-1: #000000;
+  --color-2: #202020;
+  --color-3: #404040;
+  --color-4: #5f5f5f;
+  --color-5: #7f7f7f;
+  --color-accent-1: #d4d07a;
+  --color-accent-2: #c4be6a;
+  --color-accent-3: #9e9848;
+  --color-accent-4: #7a7536;
+  --color-accent-5: #5c5828;
+  --color-ink: #000000;
+  --color-ink-soft: #202020;
+  --color-gold: #c4be6a;
+  --color-gold-bright: #9e9848;
+  --color-cream: #c4be6a;
+  --color-ember: #404040;
+  --color-mist: #7f7f7f;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: var(--color-cream);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0.03em;
+  -webkit-font-smoothing: antialiased;
+}
+
+.anton-regular {
+  font-family: "Anton", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+h1,
+h2,
+h3,
+.font-display,
+.font-slide {
+  font-family: "Anton", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-gold) 55%, transparent);
+  color: var(--color-ink);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(127, 127, 127, 0.32) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(127, 127, 127, 0.32);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(127, 127, 127, 0.55);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+input,
+textarea,
+button {
+  font-family: inherit;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.page-grid {
+  background-color: #000000;
+  background-image:
+    linear-gradient(to right, rgba(127, 127, 127, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(127, 127, 127, 0.16) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: center;
+}
+
+.slide-band {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.gold-ring {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-gold) 45%, transparent),
+    0 20px 60px rgba(0, 0, 0, 0.55);
+}
+
+.timer-glow {
+  color: var(--color-gold);
+  text-shadow:
+    0 0 18px color-mix(in srgb, var(--color-gold) 85%, transparent),
+    0 0 42px color-mix(in srgb, var(--color-gold-bright) 55%, transparent),
+    0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.theme-cascade li {
+  animation: theme-cascade-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes theme-cascade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.app-shell {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.home-layer {
+  min-height: 100dvh;
+  transition: transform 480ms cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+}
+
+.home-layer.is-pushed {
+  transform: translateX(-18%);
+  pointer-events: none;
+}
+
+.page-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  overflow: auto;
+  background: var(--color-ink);
+  transform: translateX(100%);
+  transition: transform 480ms cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+}
+
+.page-panel.is-in {
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-layer,
+  .page-panel {
+    transition: none;
+  }
+
+  .theme-cascade li {
+    animation: none;
+  }
+}
