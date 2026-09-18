@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, Download, Maximize2, Pause, Play, RotateCcw } from "lucide-react";
-import { exportTimerPptx } from "../lib/exportPptx";
+import { ChevronLeft, Download, HardDrive, Maximize2, Pause, Play, RotateCcw } from "lucide-react";
+import { DriveAuthError } from "../lib/drive/auth";
+import { buildTimerPptxFile, exportTimerPptx } from "../lib/exportPptx";
 import { listImages, resolveLibraryBackground, type LibraryImage } from "../lib/imageLibrary";
-import { THEMES, paintTheme, type ThemeId } from "../lib/themes";
+import { addSongs } from "../lib/songs";
+import { paintTheme, type ThemeId } from "../lib/themes";
 import { useAppAccent } from "../lib/appAccent";
+import { BackgroundFolderButton } from "./BackgroundFolderButton";
+import { ViewportDialog } from "./ViewportDialog";
 
 const PRESETS = [1, 3, 5, 10];
 const COLOR_PRESETS = ["#ffffff", "#e1e400", "#7f7f7f"];
@@ -41,11 +45,12 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
   const [minutes, setMinutes] = useState(5);
   const [label, setLabel] = useState("ALVO");
   const [accent, setAccent] = useState("#ffffff");
-  const [theme, setTheme] = useState<ThemeId>("goldpath");
+  const theme: ThemeId = "midnight";
   const [remaining, setRemaining] = useState(5 * 60);
   const [running, setRunning] = useState(false);
   const [present, setPresent] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"download" | "save" | false>(false);
+  const [confirmSave, setConfirmSave] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [library, setLibrary] = useState<LibraryImage[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -118,16 +123,38 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
 
   const progress = useMemo(() => (total ? remaining / total : 0), [remaining, total]);
 
+  function notify(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 6000);
+  }
+
   async function download() {
-    setBusy(true);
+    setBusy("download");
     try {
-      await exportTimerPptx({ minutes, label, color: accent });
-      setToast("PPTX baixado. No Google Slides use avanço automático de 1s.");
+      await exportTimerPptx({ minutes, label, color: accent, theme, customBg: libraryBg ?? undefined });
+      notify("PPTX baixado. Um único slide com o cronômetro em GIF.");
     } catch {
-      setToast("Não foi possível gerar o arquivo.");
+      notify("Não foi possível gerar o arquivo.");
     } finally {
       setBusy(false);
-      window.setTimeout(() => setToast(null), 3200);
+    }
+  }
+
+  async function saveToDrive() {
+    setBusy("save");
+    try {
+      const file = await buildTimerPptxFile({ minutes, label, color: accent, theme, customBg: libraryBg ?? undefined });
+      await addSongs([file]);
+      setConfirmSave(false);
+      notify("Cronômetro guardado na pasta Músicas do Drive.");
+    } catch (error) {
+      if (error instanceof DriveAuthError) {
+        notify(error.message);
+      } else {
+        notify(error instanceof Error ? error.message : "Não foi possível guardar no Drive.");
+      }
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -180,7 +207,7 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
           <p className="text-[11px] font-semibold tracking-[0.28em] text-gold uppercase">Estúdio</p>
           <h1 className="font-display text-xl text-cream">Cronômetro</h1>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
         <button
           type="button"
           onClick={() => setPresent(true)}
@@ -191,12 +218,21 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
         </button>
         <button
           type="button"
-          disabled={busy}
+          disabled={Boolean(busy)}
+          onClick={() => setConfirmSave(true)}
+          className="inline-flex items-center gap-2 rounded-full border border-gold/30 px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/10 disabled:opacity-40"
+        >
+          <HardDrive size={16} />
+          {busy === "save" ? "Guardando…" : "Guardar no Drive"}
+        </button>
+        <button
+          type="button"
+          disabled={Boolean(busy)}
           onClick={() => void download()}
           className="inline-flex items-center gap-2 rounded-full bg-gold px-4 py-2 text-sm font-semibold text-ink hover:bg-gold-bright disabled:opacity-40"
         >
           <Download size={16} />
-          {busy ? "Gerando…" : "PPTX"}
+          {busy === "download" ? "Gerando GIF…" : "PPTX"}
         </button>
         </div>
       </header>
@@ -262,21 +298,14 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
           <div>
             <p className="mb-2 text-xs font-semibold tracking-widest text-mist uppercase">Fundo</p>
             <div className="flex flex-wrap gap-2">
-              {THEMES.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => {
-                    onLibraryBg(null);
-                    setTheme(t.id);
-                  }}
-                  className={`rounded-full px-3 py-1.5 text-sm ${
-                    !libraryBg && theme === t.id ? "bg-gold text-ink" : "border border-white/10 text-mist hover:text-cream"
-                  }`}
-                >
-                  {t.name}
-                </button>
-              ))}
+              <BackgroundFolderButton
+                selectedUrl={libraryBg}
+                onSelect={(url, images) => {
+                  setLibrary(images);
+                  onLibraryBg(url);
+                }}
+                onError={notify}
+              />
             </div>
             {library.length > 0 && (
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -323,6 +352,35 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
           </div>
         </aside>
       </div>
+
+      {confirmSave && (
+        <ViewportDialog onClose={() => (busy === "save" ? undefined : setConfirmSave(false))}>
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-ink-soft p-5">
+            <p className="font-display text-xl text-cream">Guardar no Drive?</p>
+            <p className="mt-2 text-sm leading-relaxed text-mist">
+              O cronômetro de {minutes} min vai para a pasta Músicas como PPTX, em um único slide. Confirme para enviar.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={busy === "save"}
+                onClick={() => setConfirmSave(false)}
+                className="rounded-full border border-white/10 px-4 py-2 text-sm text-mist hover:text-cream disabled:opacity-40"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={busy === "save"}
+                onClick={() => void saveToDrive()}
+                className="rounded-full bg-gold px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
+              >
+                {busy === "save" ? "Guardando…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </ViewportDialog>
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-30 -translate-x-1/2 rounded-full bg-cream px-5 py-2 text-sm font-medium text-ink shadow-xl">

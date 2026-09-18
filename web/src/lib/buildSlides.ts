@@ -1,8 +1,67 @@
-export type SlideLine = { text: string; size: number };
+export type SlideRun = { text: string; size: number };
+export type SlideLine = { runs: SlideRun[] };
 
 export const FONT_SIZE = 64.5;
 export const TITLE_SIZE = 72;
 export const AUTHOR_SIZE = 42;
+export const MAX_SLIDE_LINES = 5;
+
+export function plainLine(text: string, size: number): SlideLine {
+  return { runs: text ? [{ text, size }] : [] };
+}
+
+export function emptyLine(): SlideLine {
+  return { runs: [] };
+}
+
+export function lineText(line: SlideLine): string {
+  return line.runs.map((run) => run.text).join("");
+}
+
+export function lineLength(line: SlideLine): number {
+  return glyphsOf(line).length;
+}
+
+function glyphsOf(line: SlideLine): { ch: string; size: number }[] {
+  return line.runs.flatMap((run) => [...run.text].map((ch) => ({ ch, size: run.size })));
+}
+
+export function lineFromGlyphs(glyphs: { ch: string; size: number }[]): SlideLine {
+  const runs: SlideRun[] = [];
+  for (const glyph of glyphs) {
+    const last = runs[runs.length - 1];
+    if (last && last.size === glyph.size) last.text += glyph.ch;
+    else runs.push({ text: glyph.ch, size: glyph.size });
+  }
+  return { runs };
+}
+
+export function insertInLine(line: SlideLine, offset: number, text: string, size: number): SlideLine {
+  const glyphs = glyphsOf(line);
+  const inserted = [...text.toUpperCase()].filter((ch) => ch !== "\n" && ch !== "\r").map((ch) => ({ ch, size }));
+  const at = Math.max(0, Math.min(offset, glyphs.length));
+  glyphs.splice(at, 0, ...inserted);
+  return lineFromGlyphs(glyphs);
+}
+
+export function deleteInLine(line: SlideLine, start: number, end: number): SlideLine {
+  const glyphs = glyphsOf(line);
+  const from = Math.max(0, Math.min(start, end));
+  const to = Math.min(glyphs.length, Math.max(start, end));
+  glyphs.splice(from, to - from);
+  return lineFromGlyphs(glyphs);
+}
+
+export function splitLine(line: SlideLine, offset: number): [SlideLine, SlideLine] {
+  const glyphs = glyphsOf(line);
+  const at = Math.max(0, Math.min(offset, glyphs.length));
+  return [lineFromGlyphs(glyphs.slice(0, at)), lineFromGlyphs(glyphs.slice(at))];
+}
+
+export function joinLines(left: SlideLine, right: SlideLine): SlideLine {
+  return lineFromGlyphs([...glyphsOf(left), ...glyphsOf(right)]);
+}
+
 const USABLE_WIDTH_PT = (13.333 - 0.8) * 72;
 let measureCanvas: HTMLCanvasElement | null = null;
 
@@ -41,11 +100,8 @@ function wrapToWidth(text: string, size: number): string[] {
 
 function lyricSlide(line1: string, line2?: string): SlideLine[] {
   return line2
-    ? [
-        { text: line1, size: FONT_SIZE },
-        { text: line2, size: FONT_SIZE },
-      ]
-    : [{ text: line1, size: FONT_SIZE }];
+    ? [plainLine(line1, FONT_SIZE), plainLine(line2, FONT_SIZE)]
+    : [plainLine(line1, FONT_SIZE)];
 }
 
 export function parseLetra(raw: string): { title: string; author: string; lyrics: string[] } {
@@ -83,8 +139,8 @@ export function buildSlides(title: string, author: string, lyrics: string[]): Sl
   const titleParts = wrapToWidth(title.toUpperCase(), TITLE_SIZE);
   const authorParts = wrapToWidth(author.toUpperCase(), AUTHOR_SIZE);
   const header: SlideLine[] = [
-    ...titleParts.map((part) => ({ text: part, size: TITLE_SIZE })),
-    ...authorParts.map((part) => ({ text: part, size: AUTHOR_SIZE })),
+    ...titleParts.map((part) => plainLine(part, TITLE_SIZE)),
+    ...authorParts.map((part) => plainLine(part, AUTHOR_SIZE)),
   ];
   if (header.length) slides.push(header);
 

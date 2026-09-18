@@ -15,12 +15,16 @@ async function asPptxImageData(src: string): Promise<string> {
   });
 }
 
-export async function exportLyricsPptx(options: {
+type LyricsPptxOptions = {
   title: string;
   slides: SlideLine[][];
   theme: ThemeId;
   customBg?: string;
-}): Promise<void> {
+};
+
+const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+async function createLyricsPptx(options: LyricsPptxOptions) {
   const pptx = new PptxGenJS();
   pptx.defineLayout({ name: "PROJ", width: 13.333, height: 7.5 });
   pptx.layout = "PROJ";
@@ -42,17 +46,20 @@ export async function exportLyricsPptx(options: {
       line: { color: "000000", transparency: 100 },
     });
     slide.addText(
-      lines.map((line, i) => ({
-        text: line.text,
-        options: {
-          fontFace: "Anton",
-          fontSize: line.size,
-          bold: true,
-          color: "FFFFFF",
-          align: "center",
-          breakLine: i < lines.length - 1,
-        },
-      })),
+      (lines.length ? lines : [{ runs: [{ text: " ", size: 64.5 }] }]).flatMap((line, i, all) => {
+        const runs = line.runs.length ? line.runs : [{ text: " ", size: 64.5 }];
+        return runs.map((run, j) => ({
+          text: run.text || " ",
+          options: {
+            fontFace: "Anton",
+            fontSize: run.size,
+            bold: true,
+            color: "FFFFFF",
+            align: "center" as const,
+            breakLine: j === runs.length - 1 && i < all.length - 1,
+          },
+        }));
+      }),
       {
         x: 0.4,
         y: 0.4,
@@ -70,51 +77,75 @@ export async function exportLyricsPptx(options: {
     );
   }
 
-  await pptx.writeFile({ fileName: `${safeFilename(options.title)}.pptx` });
+  return pptx;
 }
 
-export async function exportTimerPptx(options: {
+function lyricsFilename(title: string) {
+  return `${safeFilename(title)}.pptx`;
+}
+
+export async function buildLyricsPptxFile(options: LyricsPptxOptions): Promise<File> {
+  const pptx = await createLyricsPptx(options);
+  const blob = (await pptx.write({ outputType: "blob" })) as Blob;
+  return new File([blob], lyricsFilename(options.title), { type: PPTX_MIME });
+}
+
+export async function exportLyricsPptx(options: LyricsPptxOptions): Promise<void> {
+  const pptx = await createLyricsPptx(options);
+  await pptx.writeFile({ fileName: lyricsFilename(options.title) });
+}
+
+type TimerPptxOptions = {
   minutes: number;
   label: string;
   color?: string;
-}): Promise<void> {
+  theme: ThemeId;
+  customBg?: string;
+};
+
+function timerFilename(minutes: number) {
+  return `cronometro_${minutes}min.pptx`;
+}
+
+async function createTimerPptx(options: TimerPptxOptions) {
+  const { blobToDataUrl, encodeTimerGif } = await import("./timerVideo");
+  const { prepareTimerFonts } = await import("./timerRender");
+  await prepareTimerFonts();
+
+  const gif = await encodeTimerGif({
+    minutes: options.minutes,
+    label: options.label,
+    color: options.color || "#ffffff",
+    theme: options.theme,
+    customBg: options.customBg,
+  });
+  const gifData = await blobToDataUrl(gif);
+
   const pptx = new PptxGenJS();
   pptx.defineLayout({ name: "PROJ", width: 13.333, height: 7.5 });
   pptx.layout = "PROJ";
   pptx.title = `Cronômetro ${options.minutes}min`;
 
-  const accent = (options.color || "#ffffff").replace("#", "").toUpperCase();
-  const total = options.minutes * 60;
-  for (let remaining = total; remaining >= 0; remaining--) {
-    const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
-    const ss = String(remaining % 60).padStart(2, "0");
-    const slide = pptx.addSlide();
-    slide.background = { color: "000000" };
-    if (options.label) {
-      slide.addText(options.label.toUpperCase(), {
-        x: 0.8,
-        y: 1.7,
-        w: 11.733,
-        h: 0.55,
-        fontFace: "Anton",
-        fontSize: 20,
-        bold: true,
-        color: accent,
-        align: "center",
-      });
-    }
-    slide.addText(`${mm}:${ss}`, {
-      x: 0.5,
-      y: 2.3,
-      w: 12.333,
-      h: 2.2,
-      fontFace: "Anton",
-      fontSize: 96,
-      bold: true,
-      color: accent,
-      align: "center",
-    });
-  }
+  const slide = pptx.addSlide();
+  slide.addImage({
+    data: gifData,
+    x: 0,
+    y: 0,
+    w: 13.333,
+    h: 7.5,
+    altText: `cronometro_${options.minutes}min.gif`,
+  });
 
-  await pptx.writeFile({ fileName: `cronometro_${options.minutes}min.pptx` });
+  return pptx;
+}
+
+export async function buildTimerPptxFile(options: TimerPptxOptions): Promise<File> {
+  const pptx = await createTimerPptx(options);
+  const blob = (await pptx.write({ outputType: "blob" })) as Blob;
+  return new File([blob], timerFilename(options.minutes), { type: PPTX_MIME });
+}
+
+export async function exportTimerPptx(options: TimerPptxOptions): Promise<void> {
+  const pptx = await createTimerPptx(options);
+  await pptx.writeFile({ fileName: timerFilename(options.minutes) });
 }

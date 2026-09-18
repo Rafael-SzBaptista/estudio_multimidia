@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, Download, ExternalLink, Music, Search, Trash2, Upload } from "lucide-react";
 import { DriveAccountButton, DriveConnect, useDriveAuth } from "./DriveConnect";
+import { ViewportDialog } from "./ViewportDialog";
 import { DriveAuthError } from "../lib/drive/auth";
 import { downloadBlob } from "../lib/images";
 import { addSongs, downloadSong, listSongs, removeSong, type LibrarySong } from "../lib/songs";
@@ -243,7 +244,7 @@ export function SongsStudio({ onBack }: Props) {
       />
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
+        <ViewportDialog onClose={() => setPendingDelete(null)}>
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-ink-soft p-5">
             <p className="font-display text-xl text-cream">Excluir música?</p>
             <p className="mt-2 text-sm text-mist">{pendingDelete.name} sai da pasta do Drive.</p>
@@ -265,7 +266,7 @@ export function SongsStudio({ onBack }: Props) {
               </button>
             </div>
           </div>
-        </div>
+        </ViewportDialog>
       )}
 
       {toast && (

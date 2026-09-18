@@ -4,6 +4,7 @@ import { ImagesStudio } from "./components/ImagesStudio";
 import { LyricsStudio } from "./components/LyricsStudio";
 import { SongsStudio } from "./components/SongsStudio";
 import { TimerStudio } from "./components/TimerStudio";
+import { listImages, resolveLibraryBackground } from "./lib/imageLibrary";
 
 type StudioView = "lyrics" | "timer" | "images" | "songs";
 
@@ -21,6 +22,21 @@ export default function App() {
   const [libraryBg, setLibraryBg] = useState<string | null>(null);
   const homeRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (libraryBg) return;
+    let live = true;
+    void listImages()
+      .then(async (images) => {
+        if (!live || !images[0]) return;
+        const url = await resolveLibraryBackground(images[0]);
+        if (live) setLibraryBg(url);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [libraryBg]);
 
   useEffect(() => {
     if (!studio) {

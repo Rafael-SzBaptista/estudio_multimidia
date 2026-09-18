@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, Download, Images as ImagesIcon, Trash2, Upload } from "lucide-react";
 import { DriveAccountButton, DriveConnect, useDriveAuth } from "./DriveConnect";
+import { ViewportDialog } from "./ViewportDialog";
 import { DriveAuthError } from "../lib/drive/auth";
 import { addImages, downloadBlob, downloadImage, listImages, removeImage, type LibraryImage } from "../lib/images";
 
@@ -228,7 +229,7 @@ export function ImagesStudio({ onBack }: Props) {
       />
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
+        <ViewportDialog onClose={() => setPendingDelete(null)}>
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-ink-soft p-5">
             <p className="font-display text-xl text-cream">Excluir imagem?</p>
             <p className="mt-2 text-sm text-mist">
@@ -252,7 +253,7 @@ export function ImagesStudio({ onBack }: Props) {
               </button>
             </div>
           </div>
-        </div>
+        </ViewportDialog>
       )}
 
       {toast && (
