@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { HardDrive } from "lucide-react";
 import { hasDriveAccess, hasDriveClient } from "../lib/drive/config";
-import { isDriveSignedIn, signInToDrive, signOutOfDrive, subscribeDriveAuth } from "../lib/drive/auth";
+import { isDriveSignedIn, signInToDrive, signOutOfDrive, subscribeDriveAuth, getDriveAccountEmail } from "../lib/drive/auth";
 
 export function useDriveAuth() {
   const [, setTick] = useState(0);
@@ -10,7 +10,8 @@ export function useDriveAuth() {
     configured: hasDriveAccess(),
     canSignIn: hasDriveClient(),
     signedIn: isDriveSignedIn(),
-    signIn: () => signInToDrive(true),
+    email: getDriveAccountEmail(),
+    signIn: () => signInToDrive(true, "select_account"),
     signOut: signOutOfDrive,
   };
 }
@@ -75,9 +76,10 @@ export function DriveAccountButton() {
     <button
       type="button"
       onClick={auth.signOut}
-      className="rounded-full border border-white/10 px-3 py-1.5 text-xs tracking-widest text-mist uppercase hover:text-cream"
+      title="Sair do Drive"
+      className="max-w-[14rem] truncate rounded-full border border-white/10 px-3 py-1.5 text-xs tracking-widest text-mist uppercase hover:text-cream"
     >
-      Sair do Drive
+      {auth.email ? `Sair · ${auth.email}` : "Sair do Drive"}
     </button>
   );
 }

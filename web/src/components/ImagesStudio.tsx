@@ -89,8 +89,8 @@ export function ImagesStudio({ onBack }: Props) {
       const next = await removeImage(pendingDelete.id);
       setImages(next);
       notify("Imagem excluída da biblioteca.");
-    } catch {
-      notify("Não foi possível excluir a imagem.");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Não foi possível excluir a imagem.");
     } finally {
       setBusy(false);
       setPendingDelete(null);
@@ -149,7 +149,7 @@ export function ImagesStudio({ onBack }: Props) {
         ) : needsAuth ? (
           <DriveConnect
             title="Conectar as imagens"
-            description="Entre com a conta do Google que tem acesso à pasta de imagens no Drive para usar, enviar e excluir os fundos."
+            description="Entre com qualquer conta Google para listar, enviar e excluir os fundos da pasta."
             onConnected={() => void refresh()}
           />
         ) : images.length === 0 ? (

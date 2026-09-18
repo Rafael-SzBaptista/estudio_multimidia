@@ -95,8 +95,8 @@ export function SongsStudio({ onBack }: Props) {
       const next = await removeSong(pendingDelete.id);
       setSongs(next);
       notify("Música excluída do Drive.");
-    } catch {
-      notify("Não foi possível excluir.");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Não foi possível excluir.");
     } finally {
       setBusy(false);
       setPendingDelete(null);
@@ -166,7 +166,7 @@ export function SongsStudio({ onBack }: Props) {
         ) : needsAuth ? (
           <DriveConnect
             title="Conectar o acervo"
-            description="Entre com a conta do Google que tem acesso à pasta de músicas no Drive para listar, enviar e baixar os arquivos."
+            description="Entre com qualquer conta Google para listar, enviar e excluir as apresentações da pasta."
             onConnected={() => void refresh()}
           />
         ) : filtered.length === 0 ? (

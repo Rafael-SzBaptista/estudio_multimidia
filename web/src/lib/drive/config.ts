@@ -19,5 +19,6 @@ export function hasDriveAccess(): boolean {
   return hasDriveClient() || hasDriveApiKey();
 }
 
-export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
+export const DRIVE_SCOPE =
+  "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email";
 export const GIS_SCRIPT = "https://accounts.google.com/gsi/client";

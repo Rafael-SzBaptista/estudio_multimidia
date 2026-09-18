@@ -108,7 +108,7 @@ export function BackgroundFolderButton({ selectedUrl, onSelect, onError }: Props
               ) : needsAuth ? (
                 <DriveConnect
                   title="Conectar as imagens"
-                  description="Entre com a conta do Google que tem acesso à pasta de imagens do projeto."
+                  description="Entre com qualquer conta Google para ver as imagens da pasta do projeto."
                   onConnected={() => {
                     setNeedsAuth(false);
                     setReady(false);

@@ -10,8 +10,11 @@ type TokenResponse = {
   expires_in?: string;
 };
 
+type SignInPrompt = "consent" | "select_account" | "";
+
 let token: string | null = null;
 let expiresAt = 0;
+let accountEmail: string | null = null;
 let client: TokenClient | null = null;
 let gisReady: Promise<void> | null = null;
 let pending: { resolve: (value: string) => void; reject: (reason?: unknown) => void } | null = null;
@@ -26,6 +29,7 @@ declare global {
             client_id: string;
             scope: string;
             callback: (response: TokenResponse) => void;
+            error_callback?: (error: { type?: string; message?: string }) => void;
           }) => TokenClient;
         };
       };
@@ -56,6 +60,10 @@ export function getDriveToken() {
   return null;
 }
 
+export function getDriveAccountEmail() {
+  return accountEmail;
+}
+
 export function isDriveSignedIn() {
   return Boolean(getDriveToken());
 }
@@ -79,6 +87,22 @@ function loadGis(): Promise<void> {
   return gisReady;
 }
 
+async function rememberAccount(accessToken: string) {
+  try {
+    const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) {
+      accountEmail = null;
+      return;
+    }
+    const data = (await response.json()) as { email?: string };
+    accountEmail = data.email ?? null;
+  } catch {
+    accountEmail = null;
+  }
+}
+
 function getClient(): TokenClient {
   if (client) return client;
   if (!window.google?.accounts?.oauth2) {
@@ -96,15 +120,22 @@ function getClient(): TokenClient {
       token = response.access_token;
       const seconds = Number(response.expires_in || 3500);
       expiresAt = Date.now() + Math.max(60, seconds - 60) * 1000;
-      notify();
-      pending?.resolve(token);
+      const granted = token;
+      void rememberAccount(granted).finally(() => {
+        notify();
+        pending?.resolve(granted);
+        pending = null;
+      });
+    },
+    error_callback: (error) => {
+      pending?.reject(new DriveAuthError(error.message || "Login com o Google cancelado."));
       pending = null;
     },
   });
   return client;
 }
 
-export function signInToDrive(interactive = true): Promise<string> {
+export function signInToDrive(interactive = true, prompt: SignInPrompt = "consent"): Promise<string> {
   if (!hasDriveClient()) {
     return Promise.reject(new DriveAuthError("Falta VITE_GOOGLE_CLIENT_ID no .env"));
   }
@@ -116,7 +147,7 @@ export function signInToDrive(interactive = true): Promise<string> {
       new Promise<string>((resolve, reject) => {
         pending = { resolve, reject };
         try {
-          getClient().requestAccessToken({ prompt: interactive ? "consent" : "" });
+          getClient().requestAccessToken({ prompt: interactive ? prompt : "" });
         } catch (error) {
           pending = null;
           reject(error);
@@ -128,6 +159,7 @@ export function signInToDrive(interactive = true): Promise<string> {
 export function signOutOfDrive() {
   token = null;
   expiresAt = 0;
+  accountEmail = null;
   notify();
 }
 
@@ -137,6 +169,6 @@ export async function ensureDriveToken(): Promise<string> {
   try {
     return await signInToDrive(false);
   } catch {
-    return signInToDrive(true);
+    return signInToDrive(true, "select_account");
   }
 }
