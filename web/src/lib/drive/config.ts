@@ -19,6 +19,16 @@ export function hasDriveAccess(): boolean {
   return hasDriveClient() || hasDriveApiKey();
 }
 
+export const DRIVE_OWNER_EMAIL = (
+  import.meta.env.VITE_DRIVE_OWNER_EMAIL || "multimidiaconecte@gmail.com"
+)
+  .trim()
+  .toLowerCase();
+
+export function isDriveLibraryOwner(email?: string | null) {
+  return Boolean(email) && email.trim().toLowerCase() === DRIVE_OWNER_EMAIL;
+}
+
 export const DRIVE_SCOPE =
   "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email";
 export const GIS_SCRIPT = "https://accounts.google.com/gsi/client";

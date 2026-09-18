@@ -1,4 +1,4 @@
-import { DRIVE_SCOPE, GIS_SCRIPT, GOOGLE_CLIENT_ID, hasDriveClient } from "./config";
+import { DRIVE_SCOPE, GIS_SCRIPT, GOOGLE_CLIENT_ID, hasDriveClient, isDriveLibraryOwner } from "./config";
 
 type TokenClient = {
   requestAccessToken: (opts?: { prompt?: string }) => void;
@@ -66,6 +66,10 @@ export function getDriveAccountEmail() {
 
 export function isDriveSignedIn() {
   return Boolean(getDriveToken());
+}
+
+export function canManageDriveLibrary() {
+  return isDriveSignedIn() && isDriveLibraryOwner(accountEmail);
 }
 
 function loadGis(): Promise<void> {

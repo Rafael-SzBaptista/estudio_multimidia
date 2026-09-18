@@ -6,6 +6,7 @@ import {
   getDriveAccessToken,
   hasDriveServerAuth,
   isAllowedFolder,
+  isDriveOwner,
   verifyGoogleUser,
 } from "../server/googleDrive";
 
@@ -64,9 +65,15 @@ export default async function handler(req: VercelReq, res: VercelRes) {
     return;
   }
 
-  if (!(await requireUser(req, res))) return;
+  const user = await requireUser(req, res);
+  if (!user) return;
 
   const action = query(req, "action") || "list";
+  const writing = (req.method === "POST" && action === "session") || req.method === "DELETE" || action === "delete";
+  if (writing && !isDriveOwner(user.email)) {
+    res.status(403).json({ error: "Só a conta dona da pasta pode enviar ou excluir." });
+    return;
+  }
 
   try {
     if (req.method === "GET" && action === "list") {
@@ -75,7 +82,7 @@ export default async function handler(req: VercelReq, res: VercelRes) {
         res.status(400).json({ error: "Pasta inválida." });
         return;
       }
-      const files = [];
+      const files: unknown[] = [];
       let pageToken = "";
       do {
         const params = new URLSearchParams({

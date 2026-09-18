@@ -7,6 +7,7 @@ import { addSongs } from "../lib/songs";
 import { paintTheme, type ThemeId } from "../lib/themes";
 import { useAppAccent } from "../lib/appAccent";
 import { BackgroundFolderButton } from "./BackgroundFolderButton";
+import { useDriveAuth } from "./DriveConnect";
 import { ViewportDialog } from "./ViewportDialog";
 
 const PRESETS = [1, 3, 5, 10];
@@ -42,6 +43,7 @@ function format(total: number): string {
 }
 
 export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
+  const { canManage } = useDriveAuth();
   const [minutes, setMinutes] = useState(5);
   const [label, setLabel] = useState("ALVO");
   const [accent, setAccent] = useState("#ffffff");
@@ -141,6 +143,7 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
   }
 
   async function saveToDrive() {
+    if (!canManage) return;
     setBusy("save");
     try {
       const file = await buildTimerPptxFile({ minutes, label, color: accent, theme, customBg: libraryBg ?? undefined });
@@ -216,15 +219,17 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
           <Maximize2 size={16} />
           Tela cheia
         </button>
-        <button
-          type="button"
-          disabled={Boolean(busy)}
-          onClick={() => setConfirmSave(true)}
-          className="inline-flex items-center gap-2 rounded-full border border-gold/30 px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/10 disabled:opacity-40"
-        >
-          <HardDrive size={16} />
-          {busy === "save" ? "Guardando…" : "Guardar no Drive"}
-        </button>
+        {canManage ? (
+          <button
+            type="button"
+            disabled={Boolean(busy)}
+            onClick={() => setConfirmSave(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-gold/30 px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/10 disabled:opacity-40"
+          >
+            <HardDrive size={16} />
+            {busy === "save" ? "Guardando…" : "Guardar no Drive"}
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={Boolean(busy)}
@@ -353,7 +358,7 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
         </aside>
       </div>
 
-      {confirmSave && (
+      {canManage && confirmSave && (
         <ViewportDialog onClose={() => (busy === "save" ? undefined : setConfirmSave(false))}>
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-ink-soft p-5">
             <p className="font-display text-xl text-cream">Guardar no Drive?</p>

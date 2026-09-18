@@ -12,6 +12,19 @@ export const SONGS_FOLDER =
 
 const ALLOWED_FOLDERS = new Set([IMAGES_FOLDER, SONGS_FOLDER]);
 
+export const DRIVE_OWNER_EMAIL = (
+  process.env.DRIVE_OWNER_EMAIL ||
+  process.env.VITE_DRIVE_OWNER_EMAIL ||
+  "multimidiaconecte@gmail.com"
+)
+  .trim()
+  .toLowerCase();
+
+export function isDriveOwner(email: string | undefined) {
+  if (!email) return false;
+  return email.trim().toLowerCase() === DRIVE_OWNER_EMAIL;
+}
+
 type ServiceAccount = {
   client_email: string;
   private_key: string;
@@ -43,7 +56,17 @@ export async function verifyGoogleUser(authHeader: string | undefined) {
   const info = (await response.json()) as TokenInfo;
   const clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || "";
   if (clientId && info.aud !== clientId && info.azp !== clientId) throw new Error("UNAUTH");
-  return { email: info.email || "" };
+  let email = info.email || "";
+  if (!email) {
+    const profile = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (profile.ok) {
+      const data = (await profile.json()) as { email?: string };
+      email = data.email || "";
+    }
+  }
+  return { email };
 }
 
 async function tokenFromServiceAccount() {

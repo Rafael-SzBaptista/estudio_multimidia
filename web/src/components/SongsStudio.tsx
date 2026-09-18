@@ -12,6 +12,7 @@ type Props = {
 
 export function SongsStudio({ onBack }: Props) {
   const auth = useDriveAuth();
+  const canManage = auth.canManage;
   const [songs, setSongs] = useState<LibrarySong[]>([]);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,7 +61,7 @@ export function SongsStudio({ onBack }: Props) {
   }, [auth.signedIn]);
 
   async function ingest(fileList: FileList | File[] | null) {
-    if (!fileList) return;
+    if (!canManage || !fileList) return;
     const files = Array.from(fileList);
     if (!files.length) return;
     setBusy(true);
@@ -89,7 +90,7 @@ export function SongsStudio({ onBack }: Props) {
   }
 
   async function confirmDelete() {
-    if (!pendingDelete) return;
+    if (!canManage || !pendingDelete) return;
     setBusy(true);
     try {
       const next = await removeSong(pendingDelete.id);
@@ -119,21 +120,24 @@ export function SongsStudio({ onBack }: Props) {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <DriveAccountButton />
-          <button
-            type="button"
-            disabled={busy || needsAuth}
-            onClick={() => inputRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-full bg-gold px-4 py-2 text-sm font-semibold text-ink transition hover:bg-gold-bright disabled:opacity-40"
-          >
-            <Upload size={16} />
-            {busy ? "Aguarde…" : "Enviar"}
-          </button>
+          {canManage ? (
+            <button
+              type="button"
+              disabled={busy || needsAuth}
+              onClick={() => inputRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-full bg-gold px-4 py-2 text-sm font-semibold text-ink transition hover:bg-gold-bright disabled:opacity-40"
+            >
+              <Upload size={16} />
+              {busy ? "Aguarde…" : "Enviar"}
+            </button>
+          ) : null}
         </div>
       </header>
 
       <div className="mx-auto w-full min-w-0 max-w-[1500px] space-y-5 p-4 sm:p-6">
         <p className="max-w-2xl text-sm leading-relaxed text-mist">
-          Acervo de apresentações no Google Drive. Abra, baixe ou envie PPTX e Google Slides — a pasta{" "}
+          Acervo de apresentações no Google Drive. Qualquer conta pode abrir e baixar; enviar e excluir fica só com
+          multimidiaconecte. A pasta{" "}
           <a
             href="https://drive.google.com/drive/folders/1wDvc3zWeVTdgiUT_yfNbxN0fo_nQLPxh"
             target="_blank"
@@ -166,7 +170,7 @@ export function SongsStudio({ onBack }: Props) {
         ) : needsAuth ? (
           <DriveConnect
             title="Conectar o acervo"
-            description="Entre com qualquer conta Google para listar, enviar e excluir as apresentações da pasta."
+            description="Entre com o Google para ver as apresentações. Enviar e excluir só com a conta multimidiaconecte."
             onConnected={() => void refresh()}
           />
         ) : filtered.length === 0 ? (
@@ -206,27 +210,31 @@ export function SongsStudio({ onBack }: Props) {
                     >
                       <Download size={16} />
                     </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setPendingDelete(song)}
-                      className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-red-300 disabled:opacity-40"
-                      title="Excluir"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {canManage ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setPendingDelete(song)}
+                        className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-red-300 disabled:opacity-40"
+                        title="Excluir"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </article>
             ))}
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="flex min-h-[7rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gold/40 text-sm text-gold hover:bg-gold/10"
-            >
-              <Music size={18} />
-              Enviar apresentação
-            </button>
+            {canManage ? (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="flex min-h-[7rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gold/40 text-sm text-gold hover:bg-gold/10"
+              >
+                <Music size={18} />
+                Enviar apresentação
+              </button>
+            ) : null}
           </div>
         )}
       </div>

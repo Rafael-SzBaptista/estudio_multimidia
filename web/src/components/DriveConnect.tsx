@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { HardDrive } from "lucide-react";
 import { hasDriveAccess, hasDriveClient } from "../lib/drive/config";
-import { isDriveSignedIn, signInToDrive, signOutOfDrive, subscribeDriveAuth, getDriveAccountEmail } from "../lib/drive/auth";
+import {
+  canManageDriveLibrary,
+  isDriveSignedIn,
+  signInToDrive,
+  signOutOfDrive,
+  subscribeDriveAuth,
+  getDriveAccountEmail,
+} from "../lib/drive/auth";
 
 export function useDriveAuth() {
   const [, setTick] = useState(0);
@@ -10,6 +17,7 @@ export function useDriveAuth() {
     configured: hasDriveAccess(),
     canSignIn: hasDriveClient(),
     signedIn: isDriveSignedIn(),
+    canManage: canManageDriveLibrary(),
     email: getDriveAccountEmail(),
     signIn: () => signInToDrive(true, "select_account"),
     signOut: signOutOfDrive,

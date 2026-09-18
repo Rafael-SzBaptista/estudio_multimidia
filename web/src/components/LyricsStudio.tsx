@@ -17,6 +17,7 @@ import { listImages, resolveLibraryBackground, type LibraryImage } from "../lib/
 import { SAMPLE_LYRICS } from "../lib/sampleLyrics";
 import { type ThemeId } from "../lib/themes";
 import { BackgroundFolderButton } from "./BackgroundFolderButton";
+import { useDriveAuth } from "./DriveConnect";
 import { FontPicker } from "./FontPicker";
 import { SlidePreview } from "./SlidePreview";
 import { ViewportDialog } from "./ViewportDialog";
@@ -36,6 +37,7 @@ export function LyricsStudio({
   libraryBg,
   onLibraryBg,
 }: Props) {
+  const { canManage } = useDriveAuth();
   const [raw, setRaw] = useState(SAMPLE_LYRICS);
   const theme: ThemeId = "midnight";
   const [index, setIndex] = useState(0);
@@ -180,7 +182,7 @@ export function LyricsStudio({
   }
 
   async function saveToDrive() {
-    if (!slides.length) return;
+    if (!canManage || !slides.length) return;
     setBusy("save");
     try {
       const file = await buildLyricsPptxFile({
@@ -241,15 +243,17 @@ export function LyricsStudio({
           Apresentar
         </button>
         <FontPicker size={writingSize} onChange={setWritingSize} />
-        <button
-          type="button"
-          disabled={Boolean(busy) || !slides.length}
-          onClick={() => setConfirmSave(true)}
-          className="inline-flex items-center gap-2 rounded-full border border-gold/30 px-4 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10 disabled:opacity-40"
-        >
-          <HardDrive size={16} />
-          {busy === "save" ? "Guardando…" : "Guardar no Drive"}
-        </button>
+        {canManage ? (
+          <button
+            type="button"
+            disabled={Boolean(busy) || !slides.length}
+            onClick={() => setConfirmSave(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-gold/30 px-4 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10 disabled:opacity-40"
+          >
+            <HardDrive size={16} />
+            {busy === "save" ? "Guardando…" : "Guardar no Drive"}
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={Boolean(busy) || !slides.length}
@@ -437,7 +441,7 @@ export function LyricsStudio({
         </section>
       </div>
 
-      {confirmSave && (
+      {canManage && confirmSave && (
         <ViewportDialog onClose={() => (busy === "save" ? undefined : setConfirmSave(false))}>
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-ink-soft p-5">
             <p className="font-display text-xl text-cream">Guardar no Drive?</p>

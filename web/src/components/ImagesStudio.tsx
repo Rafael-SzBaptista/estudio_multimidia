@@ -11,6 +11,7 @@ type Props = {
 
 export function ImagesStudio({ onBack }: Props) {
   const auth = useDriveAuth();
+  const canManage = auth.canManage;
   const [images, setImages] = useState<LibraryImage[]>([]);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -54,7 +55,7 @@ export function ImagesStudio({ onBack }: Props) {
   }
 
   async function ingest(fileList: FileList | File[] | null) {
-    if (!fileList) return;
+    if (!canManage || !fileList) return;
     const files = Array.from(fileList);
     if (!files.length) return;
     setBusy(true);
@@ -83,7 +84,7 @@ export function ImagesStudio({ onBack }: Props) {
   }
 
   async function confirmDelete() {
-    if (!pendingDelete) return;
+    if (!canManage || !pendingDelete) return;
     setBusy(true);
     try {
       const next = await removeImage(pendingDelete.id);
@@ -113,22 +114,24 @@ export function ImagesStudio({ onBack }: Props) {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <DriveAccountButton />
-          <button
-            type="button"
-            disabled={busy || needsAuth}
-            onClick={() => inputRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-full bg-gold px-4 py-2 text-sm font-semibold text-ink transition hover:bg-gold-bright disabled:opacity-40"
-          >
-          <Upload size={16} />
-          {busy ? "Aguarde…" : "Enviar"}
-          </button>
+          {canManage ? (
+            <button
+              type="button"
+              disabled={busy || needsAuth}
+              onClick={() => inputRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-full bg-gold px-4 py-2 text-sm font-semibold text-ink transition hover:bg-gold-bright disabled:opacity-40"
+            >
+              <Upload size={16} />
+              {busy ? "Aguarde…" : "Enviar"}
+            </button>
+          ) : null}
         </div>
       </header>
 
       <div className="mx-auto w-full min-w-0 max-w-[1500px] space-y-5 p-4 sm:p-6">
         <p className="max-w-2xl text-sm leading-relaxed text-mist">
-          Biblioteca de fundos no Google Drive. Envie, baixe ou exclua as imagens — elas aparecem nas letras e no
-          cronômetro. Pasta:{" "}
+          Biblioteca de fundos no Google Drive. Qualquer conta pode ver e baixar; enviar e excluir fica só com
+          multimidiaconecte. Pasta:{" "}
           <a
             href="https://drive.google.com/drive/folders/1ebsPPjcQjBdvrF47OSm2BCwhsig_cKdH"
             target="_blank"
@@ -149,25 +152,34 @@ export function ImagesStudio({ onBack }: Props) {
         ) : needsAuth ? (
           <DriveConnect
             title="Conectar as imagens"
-            description="Entre com qualquer conta Google para listar, enviar e excluir os fundos da pasta."
+            description="Entre com o Google para ver os fundos. Enviar e excluir só com a conta multimidiaconecte."
             onConnected={() => void refresh()}
           />
         ) : images.length === 0 ? (
-          <DropZone
-            dragging={dragging}
-            setDragging={setDragging}
-            onFiles={(files) => void ingest(files)}
-            onPick={() => inputRef.current?.click()}
-          />
+          canManage ? (
+            <DropZone
+              dragging={dragging}
+              setDragging={setDragging}
+              onFiles={(files) => void ingest(files)}
+              onPick={() => inputRef.current?.click()}
+            />
+          ) : (
+            <p className="text-sm text-mist">A pasta ainda está vazia.</p>
+          )
         ) : (
           <div
             onDragEnter={(e) => {
+              if (!canManage) return;
               e.preventDefault();
               setDragging(true);
             }}
-            onDragOver={(e) => e.preventDefault()}
+            onDragOver={(e) => {
+              if (!canManage) return;
+              e.preventDefault();
+            }}
             onDragLeave={() => setDragging(false)}
             onDrop={(e) => {
+              if (!canManage) return;
               e.preventDefault();
               setDragging(false);
               void ingest(e.dataTransfer.files);
@@ -192,26 +204,30 @@ export function ImagesStudio({ onBack }: Props) {
                   >
                     <Download size={16} />
                   </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setPendingDelete(img)}
-                    className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-red-300 disabled:opacity-40"
-                    title="Excluir"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {canManage ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setPendingDelete(img)}
+                      className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-red-300 disabled:opacity-40"
+                      title="Excluir"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  ) : null}
                 </div>
               </article>
             ))}
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="flex min-h-[8rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gold/40 text-sm text-gold hover:bg-gold/10"
-            >
-              <Upload size={18} />
-              Enviar imagens
-            </button>
+            {canManage ? (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="flex min-h-[8rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gold/40 text-sm text-gold hover:bg-gold/10"
+              >
+                <Upload size={18} />
+                Enviar imagens
+              </button>
+            ) : null}
           </div>
         )}
       </div>
