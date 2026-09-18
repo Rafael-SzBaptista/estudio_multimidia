@@ -107,11 +107,35 @@ function timerFilename(minutes: number) {
   return `cronometro_${minutes}min.pptx`;
 }
 
-async function createTimerPptx(options: TimerPptxOptions) {
-  const { blobToDataUrl, encodeTimerGif } = await import("./timerVideo");
+async function packTimerGifPptx(gif: Blob, gifName: string): Promise<Blob> {
+  const JSZip = (await import("jszip")).default;
+  const templateUrl = new URL("./timerGifTemplate.pptx", import.meta.url).href;
+  const template = await fetch(templateUrl).then((res) => {
+    if (!res.ok) throw new Error("Não foi possível carregar o modelo do cronômetro.");
+    return res.arrayBuffer();
+  });
+  const zip = await JSZip.loadAsync(template);
+  zip.file("ppt/media/image1.gif", await gif.arrayBuffer(), { compression: "STORE" });
+  const slideFile = zip.file("ppt/slides/slide1.xml");
+  if (slideFile) {
+    let xml = await slideFile.async("string");
+    xml = xml.replace(/descr="[^"]*"/, `descr="${gifName}"`);
+    xml = xml.replace(/name="Picture 1"/, `name="${gifName}"`);
+    zip.file("ppt/slides/slide1.xml", xml);
+  }
+  return zip.generateAsync({
+    type: "blob",
+    mimeType: PPTX_MIME,
+    compression: "DEFLATE",
+  });
+}
+
+async function createTimerPptxBlob(options: TimerPptxOptions) {
+  const { encodeTimerGif } = await import("./timerVideo");
   const { prepareTimerFonts } = await import("./timerRender");
   await prepareTimerFonts();
 
+  const gifName = `cronometro_${options.minutes}min.gif`;
   const gif = await encodeTimerGif({
     minutes: options.minutes,
     label: options.label,
@@ -119,33 +143,23 @@ async function createTimerPptx(options: TimerPptxOptions) {
     theme: options.theme,
     customBg: options.customBg,
   });
-  const gifData = await blobToDataUrl(gif);
-
-  const pptx = new PptxGenJS();
-  pptx.defineLayout({ name: "PROJ", width: 13.333, height: 7.5 });
-  pptx.layout = "PROJ";
-  pptx.title = `Cronômetro ${options.minutes}min`;
-
-  const slide = pptx.addSlide();
-  slide.addImage({
-    data: gifData,
-    x: 0,
-    y: 0,
-    w: 13.333,
-    h: 7.5,
-    altText: `cronometro_${options.minutes}min.gif`,
-  });
-
-  return pptx;
+  return packTimerGifPptx(gif, gifName);
 }
 
 export async function buildTimerPptxFile(options: TimerPptxOptions): Promise<File> {
-  const pptx = await createTimerPptx(options);
-  const blob = (await pptx.write({ outputType: "blob" })) as Blob;
+  const blob = await createTimerPptxBlob(options);
   return new File([blob], timerFilename(options.minutes), { type: PPTX_MIME });
 }
 
 export async function exportTimerPptx(options: TimerPptxOptions): Promise<void> {
-  const pptx = await createTimerPptx(options);
-  await pptx.writeFile({ fileName: timerFilename(options.minutes) });
+  const blob = await createTimerPptxBlob(options);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = timerFilename(options.minutes);
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

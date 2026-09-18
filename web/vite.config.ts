@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  assetsInclude: ["**/*.pptx"],
   server: {
     port: 5173,
     open: true,

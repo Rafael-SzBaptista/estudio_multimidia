@@ -16,6 +16,26 @@ type EncodeOptions = {
   customBg?: string;
 };
 
+function deltaIndex(
+  prev: Uint8ClampedArray,
+  next: Uint8ClampedArray,
+  indexed: Uint8Array,
+  transparentIndex: number,
+): Uint8Array {
+  const out = new Uint8Array(indexed.length);
+  for (let i = 0; i < indexed.length; i++) {
+    const o = i * 4;
+    out[i] =
+      prev[o] === next[o] &&
+      prev[o + 1] === next[o + 1] &&
+      prev[o + 2] === next[o + 2] &&
+      prev[o + 3] === next[o + 3]
+        ? transparentIndex
+        : (indexed[i] ?? 0);
+  }
+  return out;
+}
+
 export async function encodeTimerGif(options: EncodeOptions): Promise<Blob> {
   const total = Math.max(1, Math.round(options.minutes * 60));
   const sequence = remainingSequence(total);
@@ -38,20 +58,34 @@ export async function encodeTimerGif(options: EncodeOptions): Promise<Blob> {
     color: options.color,
   };
 
-  const gif = GIFEncoder();
+  const gif = GIFEncoder({ initialCapacity: 8 * 1024 * 1024 });
   let palette: number[][] | null = null;
+  let colorPalette: number[][] | null = null;
+  let transparentIndex = 0;
+  let prevRgba: Uint8ClampedArray | null = null;
 
   for (let i = 0; i < sequence.length; i++) {
     const remaining = sequence[i] ?? 0;
     drawTimerFrame(ctx, background, { ...frameOptions, remaining });
     const image = ctx.getImageData(0, 0, TIMER_VIDEO_WIDTH, TIMER_VIDEO_HEIGHT);
-    if (!palette) palette = quantize(image.data, 128);
-    const index = applyPalette(image.data, palette);
-    gif.writeFrame(index, TIMER_VIDEO_WIDTH, TIMER_VIDEO_HEIGHT, {
+    if (!colorPalette) {
+      colorPalette = quantize(image.data, 127);
+      transparentIndex = colorPalette.length;
+      palette = [...colorPalette, [0, 0, 0]];
+    }
+    if (!palette || !colorPalette) throw new Error("Paleta do GIF indisponível.");
+    const indexed = applyPalette(image.data, colorPalette);
+    const frame =
+      i === 0 || !prevRgba ? indexed : deltaIndex(prevRgba, image.data, indexed, transparentIndex);
+    gif.writeFrame(frame, TIMER_VIDEO_WIDTH, TIMER_VIDEO_HEIGHT, {
       palette: i === 0 ? palette : undefined,
       delay: 1000,
-      repeat: i === 0 ? -1 : undefined,
+      repeat: i === 0 ? 0 : undefined,
+      transparent: i > 0,
+      transparentIndex,
+      dispose: i === 0 ? 0 : 1,
     });
+    prevRgba = image.data;
     if (i % 12 === 0) {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     }
@@ -61,13 +95,4 @@ export async function encodeTimerGif(options: EncodeOptions): Promise<Blob> {
   const bytes = gif.bytes();
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
   return new Blob([buffer], { type: "image/gif" });
-}
-
-export function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
 }
