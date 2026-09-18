@@ -1,4 +1,11 @@
-import { DRIVE_SCOPE, GIS_SCRIPT, GOOGLE_CLIENT_ID, hasDriveClient, isDriveLibraryOwner } from "./config";
+import {
+  DRIVE_READ_SCOPE,
+  DRIVE_WRITE_SCOPE,
+  GIS_SCRIPT,
+  GOOGLE_CLIENT_ID,
+  hasDriveClient,
+  isDriveLibraryOwner,
+} from "./config";
 
 type TokenClient = {
   requestAccessToken: (opts?: { prompt?: string }) => void;
@@ -15,7 +22,9 @@ type SignInPrompt = "consent" | "select_account" | "";
 let token: string | null = null;
 let expiresAt = 0;
 let accountEmail: string | null = null;
+let tokenScope: "read" | "write" | null = null;
 let client: TokenClient | null = null;
+let clientScope: string | null = null;
 let gisReady: Promise<void> | null = null;
 let pending: { resolve: (value: string) => void; reject: (reason?: unknown) => void } | null = null;
 const listeners = new Set<() => void>();
@@ -91,30 +100,45 @@ function loadGis(): Promise<void> {
   return gisReady;
 }
 
-async function rememberAccount(accessToken: string) {
+async function emailFromUserinfo(accessToken: string): Promise<string | null> {
+  const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) return null;
+  const data = (await response.json()) as { email?: string };
+  return data.email?.trim() || null;
+}
+
+async function emailFromTokenInfo(accessToken: string): Promise<string | null> {
+  const response = await fetch(
+    `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`,
+  );
+  if (!response.ok) return null;
+  const data = (await response.json()) as { email?: string };
+  return data.email?.trim() || null;
+}
+
+export async function fetchGoogleAccountEmail(accessToken: string): Promise<string | null> {
   try {
-    const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!response.ok) {
-      accountEmail = null;
-      return;
-    }
-    const data = (await response.json()) as { email?: string };
-    accountEmail = data.email ?? null;
+    return (await emailFromTokenInfo(accessToken)) || (await emailFromUserinfo(accessToken));
   } catch {
-    accountEmail = null;
+    return null;
   }
 }
 
-function getClient(): TokenClient {
-  if (client) return client;
+async function rememberAccount(accessToken: string) {
+  accountEmail = await fetchGoogleAccountEmail(accessToken);
+}
+
+function getClient(scope: string): TokenClient {
+  if (client && clientScope === scope) return client;
   if (!window.google?.accounts?.oauth2) {
     throw new DriveAuthError("Login do Google ainda não está pronto.");
   }
+  clientScope = scope;
   client = window.google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
-    scope: DRIVE_SCOPE,
+    scope,
     callback: (response) => {
       if (response.error || !response.access_token) {
         pending?.reject(new DriveAuthError("Login com o Google cancelado."));
@@ -122,6 +146,7 @@ function getClient(): TokenClient {
         return;
       }
       token = response.access_token;
+      tokenScope = scope === DRIVE_WRITE_SCOPE ? "write" : "read";
       const seconds = Number(response.expires_in || 3500);
       expiresAt = Date.now() + Math.max(60, seconds - 60) * 1000;
       const granted = token;
@@ -139,19 +164,24 @@ function getClient(): TokenClient {
   return client;
 }
 
-export function signInToDrive(interactive = true, prompt: SignInPrompt = "consent"): Promise<string> {
+export function signInToDrive(
+  interactive = true,
+  prompt: SignInPrompt = "consent",
+  scope: string = DRIVE_READ_SCOPE,
+): Promise<string> {
   if (!hasDriveClient()) {
     return Promise.reject(new DriveAuthError("Falta VITE_GOOGLE_CLIENT_ID no .env"));
   }
   const current = getDriveToken();
-  if (current && !interactive) return Promise.resolve(current);
+  const sameScope = scope === DRIVE_WRITE_SCOPE ? tokenScope === "write" : Boolean(current);
+  if (current && !interactive && sameScope) return Promise.resolve(current);
 
   return loadGis().then(
     () =>
       new Promise<string>((resolve, reject) => {
         pending = { resolve, reject };
         try {
-          getClient().requestAccessToken({ prompt: interactive ? prompt : "" });
+          getClient(scope).requestAccessToken({ prompt: interactive ? prompt : "" });
         } catch (error) {
           pending = null;
           reject(error);
@@ -164,6 +194,7 @@ export function signOutOfDrive() {
   token = null;
   expiresAt = 0;
   accountEmail = null;
+  tokenScope = null;
   notify();
 }
 
@@ -175,4 +206,31 @@ export async function ensureDriveToken(): Promise<string> {
   } catch {
     return signInToDrive(true, "select_account");
   }
+}
+
+export async function verifyLibraryOwnerEmail(): Promise<string> {
+  const accessToken = await ensureDriveToken();
+  const email = await fetchGoogleAccountEmail(accessToken);
+  accountEmail = email;
+  notify();
+  if (!email || !isDriveLibraryOwner(email)) {
+    throw new Error("Só a conta multimidiaconecte pode enviar ou excluir arquivos da biblioteca.");
+  }
+  return email;
+}
+
+export async function ensureOwnerWriteToken(): Promise<string> {
+  await verifyLibraryOwnerEmail();
+  const current = getDriveToken();
+  if (current && tokenScope === "write") return current;
+  return signInToDrive(true, "consent", DRIVE_WRITE_SCOPE).then(async (accessToken) => {
+    const email = await fetchGoogleAccountEmail(accessToken);
+    accountEmail = email;
+    notify();
+    if (!email || !isDriveLibraryOwner(email)) {
+      signOutOfDrive();
+      throw new Error("Só a conta multimidiaconecte pode enviar ou excluir arquivos da biblioteca.");
+    }
+    return accessToken;
+  });
 }

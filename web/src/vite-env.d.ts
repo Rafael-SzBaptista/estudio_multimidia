@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_GOOGLE_API_KEY?: string;
   readonly VITE_DRIVE_IMAGES_FOLDER?: string;
   readonly VITE_DRIVE_SONGS_FOLDER?: string;
+  readonly VITE_DRIVE_OWNER_EMAIL?: string;
 }
 
 interface ImportMeta {

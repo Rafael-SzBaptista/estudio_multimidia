@@ -1,5 +1,13 @@
-import { DRIVE_OWNER_EMAIL, GOOGLE_API_KEY, hasDriveApiKey, hasDriveClient, isDriveLibraryOwner } from "./config";
-import { DriveAuthError, ensureDriveToken, getDriveAccountEmail, getDriveToken, signInToDrive, signOutOfDrive } from "./auth";
+import { DRIVE_OWNER_EMAIL, GOOGLE_API_KEY, hasDriveApiKey, hasDriveClient } from "./config";
+import {
+  DriveAuthError,
+  ensureDriveToken,
+  ensureOwnerWriteToken,
+  getDriveToken,
+  signInToDrive,
+  signOutOfDrive,
+  verifyLibraryOwnerEmail,
+} from "./auth";
 
 export type DriveFile = {
   id: string;
@@ -77,9 +85,7 @@ async function readError(response: Response): Promise<string> {
 }
 
 async function assertLibraryOwner() {
-  await ensureDriveToken();
-  if (isDriveLibraryOwner(getDriveAccountEmail())) return;
-  throw new Error(`Só a conta ${DRIVE_OWNER_EMAIL} pode enviar ou excluir arquivos da biblioteca.`);
+  await verifyLibraryOwnerEmail();
 }
 
 export async function listFolder(folderId: string): Promise<DriveFile[]> {
@@ -178,7 +184,7 @@ export async function uploadToFolder(folderId: string, file: File): Promise<Driv
     return put.json() as Promise<DriveFile>;
   }
 
-  const token = await ensureDriveToken();
+  const token = await ensureOwnerWriteToken();
   const metadata = JSON.stringify({ name: file.name, parents: [folderId] });
   const boundary = `drive_boundary_${Date.now()}`;
   const body = new Blob(
@@ -209,6 +215,7 @@ export async function deleteDriveFile(id: string) {
     if (!proxied.ok) throw new Error(await readError(proxied));
     return;
   }
+  await ensureOwnerWriteToken();
   const response = await driveFetch(`files/${id}?supportsAllDrives=true`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

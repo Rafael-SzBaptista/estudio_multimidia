@@ -4,6 +4,7 @@
   --font-display: "Anton", sans-serif;
   --font-sans: "Anton", sans-serif;
   --font-slide: "Anton", sans-serif;
+  --font-lyrics: "Tw Cen MT", "Twentieth Century", sans-serif;
   --color-1: #000000;
   --color-2: #202020;
   --color-3: #404040;
@@ -55,6 +56,14 @@ h3,
   font-weight: 400;
   font-style: normal;
   letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.font-lyrics {
+  font-family: var(--font-lyrics);
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 

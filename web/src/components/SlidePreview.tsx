@@ -117,7 +117,7 @@ export function SlidePreview({
         className="absolute inset-0 h-full w-full object-cover"
       />
       <div className="absolute top-[3.3%] right-0 left-0 flex h-[36%] items-center justify-center overflow-hidden bg-black/40 px-[4%]">
-        <div className="flex w-full min-w-0 flex-col items-center justify-center text-center font-slide font-normal text-white uppercase drop-shadow-[0_3px_10px_rgba(0,0,0,0.75)]">
+        <div className="flex w-full min-w-0 flex-col items-center justify-center text-center font-lyrics font-bold text-white uppercase drop-shadow-[0_3px_10px_rgba(0,0,0,0.75)]">
           {canEdit ? (
             <SlideTextEditor
               lines={lines}

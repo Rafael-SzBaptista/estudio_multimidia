@@ -9,7 +9,14 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { buildSlides, emptyLine, FONT_SIZE, parseLetra, type SlideLine } from "../lib/buildSlides";
+import {
+  buildSlides,
+  emptyLine,
+  FONT_SIZE,
+  parseLetra,
+  prepareSlideFont,
+  type SlideLine,
+} from "../lib/buildSlides";
 import { DriveAuthError } from "../lib/drive/auth";
 import { buildLyricsPptxFile, exportLyricsPptx } from "../lib/exportPptx";
 import { addSongs } from "../lib/songs";
@@ -19,6 +26,7 @@ import { type ThemeId } from "../lib/themes";
 import { BackgroundFolderButton } from "./BackgroundFolderButton";
 import { useDriveAuth } from "./DriveConnect";
 import { FontPicker } from "./FontPicker";
+import { FileNameField, useExportFileName } from "./FileNameField";
 import { SlidePreview } from "./SlidePreview";
 import { ViewportDialog } from "./ViewportDialog";
 
@@ -53,10 +61,22 @@ export function LyricsStudio({
   const customBg = libraryBg;
 
   const parsed = useMemo(() => parseLetra(raw), [raw]);
+  const file = useExportFileName(parsed.title || "slides", parsed.title || "slides");
+  const [fontReady, setFontReady] = useState(false);
   const generated = useMemo(
     () => buildSlides(parsed.title, parsed.author, parsed.lyrics),
-    [parsed],
+    [parsed, fontReady],
   );
+
+  useEffect(() => {
+    let live = true;
+    void prepareSlideFont().finally(() => {
+      if (live) setFontReady(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
   const [slides, setSlides] = useState<SlideLine[][]>(generated);
 
   useEffect(() => {
@@ -169,6 +189,7 @@ export function LyricsStudio({
     try {
       await exportLyricsPptx({
         title: parsed.title || "slides",
+        fileName: file.filename,
         slides,
         theme,
         customBg: customBg ?? undefined,
@@ -185,13 +206,14 @@ export function LyricsStudio({
     if (!canManage || !slides.length) return;
     setBusy("save");
     try {
-      const file = await buildLyricsPptxFile({
+      const pptx = await buildLyricsPptxFile({
         title: parsed.title || "slides",
+        fileName: file.filename,
         slides,
         theme,
         customBg: customBg ?? undefined,
       });
-      await addSongs([file]);
+      await addSongs([pptx]);
       setConfirmSave(false);
       notify("Música guardada na pasta Músicas do Drive.");
     } catch (error) {
@@ -279,6 +301,7 @@ export function LyricsStudio({
               className="h-44 w-full resize-none rounded-2xl border border-white/10 bg-ink-soft px-4 py-3 text-sm leading-relaxed text-white outline-none ring-gold/40 focus:ring-2 xl:h-[min(58vh,640px)]"
             />
           </label>
+          <FileNameField value={file.name} onChange={file.setName} />
           <p className="text-xs leading-relaxed text-mist">
             Linha 1 = título · linha 2 = autor · depois a letra. Clique no slide para editar. Em Fonte, escolha Título,
             Subtítulo ou Letra para cada letra nova — o restante do texto permanece como está.
@@ -446,7 +469,7 @@ export function LyricsStudio({
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-ink-soft p-5">
             <p className="font-display text-xl text-cream">Guardar no Drive?</p>
             <p className="mt-2 text-sm leading-relaxed text-mist">
-              {parsed.title || "Esta música"} vai para a pasta Músicas como PPTX. Confirme para enviar.
+              {file.filename} vai para a pasta Músicas. Confirme para enviar.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button

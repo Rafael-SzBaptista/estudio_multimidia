@@ -250,7 +250,7 @@ export function SlideTextEditor({ lines, writingSize, fontSize, onChange }: Prop
         aria-multiline="true"
         aria-label="Texto do slide"
         aria-placeholder="Escreva aqui"
-        className="w-full text-center font-slide text-white uppercase outline-none"
+        className="w-full text-center font-lyrics font-bold text-white uppercase outline-none"
         onBeforeInput={(event) => {
           if (composing.current) return;
           event.preventDefault();

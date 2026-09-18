@@ -8,6 +8,7 @@ import { paintTheme, type ThemeId } from "../lib/themes";
 import { useAppAccent } from "../lib/appAccent";
 import { BackgroundFolderButton } from "./BackgroundFolderButton";
 import { useDriveAuth } from "./DriveConnect";
+import { FileNameField, useExportFileName } from "./FileNameField";
 import { ViewportDialog } from "./ViewportDialog";
 
 const PRESETS = [1, 3, 5, 10];
@@ -46,6 +47,7 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
   const { canManage } = useDriveAuth();
   const [minutes, setMinutes] = useState(5);
   const [label, setLabel] = useState("ALVO");
+  const file = useExportFileName(`cronometro_${minutes}min`, "cronometro");
   const [accent, setAccent] = useState("#ffffff");
   const theme: ThemeId = "midnight";
   const [remaining, setRemaining] = useState(5 * 60);
@@ -133,7 +135,14 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
   async function download() {
     setBusy("download");
     try {
-      await exportTimerPptx({ minutes, label, color: accent, theme, customBg: libraryBg ?? undefined });
+      await exportTimerPptx({
+        minutes,
+        label,
+        fileName: file.filename,
+        color: accent,
+        theme,
+        customBg: libraryBg ?? undefined,
+      });
       notify("PPTX baixado. Um único slide com o cronômetro em GIF.");
     } catch {
       notify("Não foi possível gerar o arquivo.");
@@ -146,8 +155,15 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
     if (!canManage) return;
     setBusy("save");
     try {
-      const file = await buildTimerPptxFile({ minutes, label, color: accent, theme, customBg: libraryBg ?? undefined });
-      await addSongs([file]);
+      const pptx = await buildTimerPptxFile({
+        minutes,
+        label,
+        fileName: file.filename,
+        color: accent,
+        theme,
+        customBg: libraryBg ?? undefined,
+      });
+      await addSongs([pptx]);
       setConfirmSave(false);
       notify("Cronômetro guardado na pasta Músicas do Drive.");
     } catch (error) {
@@ -273,6 +289,8 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
             />
           </label>
 
+          <FileNameField value={file.name} onChange={file.setName} />
+
           <div>
             <p className="mb-2 text-xs font-semibold tracking-widest text-mist uppercase">Cor</p>
             <div className="flex flex-wrap items-center gap-2">
@@ -363,7 +381,7 @@ export function TimerStudio({ onBack, libraryBg, onLibraryBg }: Props) {
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-ink-soft p-5">
             <p className="font-display text-xl text-cream">Guardar no Drive?</p>
             <p className="mt-2 text-sm leading-relaxed text-mist">
-              O cronômetro de {minutes} min vai para a pasta Músicas como PPTX, em um único slide. Confirme para enviar.
+              {file.filename} vai para a pasta Músicas, em um único slide. Confirme para enviar.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button

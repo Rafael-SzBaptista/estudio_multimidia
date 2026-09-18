@@ -20,9 +20,16 @@ export const DRIVE_OWNER_EMAIL = (
   .trim()
   .toLowerCase();
 
+const GMAIL_DOMAINS = new Set(["gmail.com", "googlemail.com"]);
+
 export function isDriveOwner(email: string | undefined) {
   if (!email) return false;
-  return email.trim().toLowerCase() === DRIVE_OWNER_EMAIL;
+  const value = email.trim().toLowerCase();
+  if (value === DRIVE_OWNER_EMAIL) return true;
+  const [local, domain] = value.split("@");
+  const [ownerLocal, ownerDomain] = DRIVE_OWNER_EMAIL.split("@");
+  if (!local || !domain || local !== ownerLocal) return false;
+  return GMAIL_DOMAINS.has(domain) && GMAIL_DOMAINS.has(ownerDomain);
 }
 
 type ServiceAccount = {
@@ -66,6 +73,8 @@ export async function verifyGoogleUser(authHeader: string | undefined) {
       email = data.email || "";
     }
   }
+  email = email.trim();
+  if (!email) throw new Error("UNAUTH");
   return { email };
 }
 
@@ -141,4 +150,69 @@ export async function assertFileInLibrary(fileId: string) {
   if (!response.ok) throw new Error("NOT_FOUND");
   const data = (await response.json()) as { parents?: string[] };
   if (!(data.parents || []).some((parent) => isAllowedFolder(parent))) throw new Error("FORBIDDEN");
+}
+
+type DrivePermission = {
+  id?: string;
+  type?: string;
+  role?: string;
+  emailAddress?: string;
+};
+
+function serviceAccountEmail(): string | null {
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (!raw) return null;
+  try {
+    const email = (JSON.parse(raw) as { client_email?: string }).client_email;
+    return email?.trim().toLowerCase() || null;
+  } catch {
+    return null;
+  }
+}
+
+function keepWriter(email: string | undefined) {
+  if (!email) return false;
+  const value = email.trim().toLowerCase();
+  if (isDriveOwner(value)) return true;
+  const sa = serviceAccountEmail();
+  return Boolean(sa && value === sa);
+}
+
+async function lockFolder(folderId: string) {
+  const listed = await driveRequest(
+    `files/${folderId}/permissions?fields=permissions(id,type,role,emailAddress)&supportsAllDrives=true`,
+  );
+  if (!listed.ok) return;
+  const data = (await listed.json()) as { permissions?: DrivePermission[] };
+  const permissions = data.permissions ?? [];
+  const anyone = permissions.find((item) => item.type === "anyone");
+
+  if (anyone?.id && anyone.role && anyone.role !== "reader") {
+    await driveRequest(`files/${folderId}/permissions/${anyone.id}?supportsAllDrives=true`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "reader" }),
+    });
+  } else if (!anyone) {
+    await driveRequest(`files/${folderId}/permissions?supportsAllDrives=true`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "reader", type: "anyone" }),
+    });
+  }
+
+  for (const permission of permissions) {
+    if (!permission.id) continue;
+    if (permission.role === "owner") continue;
+    if (permission.type === "anyone") continue;
+    if (keepWriter(permission.emailAddress)) continue;
+    if (permission.role === "reader" || permission.role === "commenter") continue;
+    await driveRequest(`files/${folderId}/permissions/${permission.id}?supportsAllDrives=true`, {
+      method: "DELETE",
+    });
+  }
+}
+
+export async function lockLibraryPermissions() {
+  await Promise.all([lockFolder(IMAGES_FOLDER), lockFolder(SONGS_FOLDER)]);
 }

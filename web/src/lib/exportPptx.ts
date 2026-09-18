@@ -1,6 +1,6 @@
 import PptxGenJS from "pptxgenjs";
 import type { SlideLine } from "./buildSlides";
-import { safeFilename } from "./buildSlides";
+import { FONT_FACE, exportFilename } from "./buildSlides";
 import { themeToDataUrl, type ThemeId } from "./themes";
 
 async function asPptxImageData(src: string): Promise<string> {
@@ -17,6 +17,7 @@ async function asPptxImageData(src: string): Promise<string> {
 
 type LyricsPptxOptions = {
   title: string;
+  fileName?: string;
   slides: SlideLine[][];
   theme: ThemeId;
   customBg?: string;
@@ -29,6 +30,7 @@ async function createLyricsPptx(options: LyricsPptxOptions) {
   pptx.defineLayout({ name: "PROJ", width: 13.333, height: 7.5 });
   pptx.layout = "PROJ";
   pptx.title = options.title || "Slides";
+  pptx.theme = { headFontFace: FONT_FACE, bodyFontFace: FONT_FACE };
 
   const bg = options.customBg
     ? await asPptxImageData(options.customBg)
@@ -51,7 +53,7 @@ async function createLyricsPptx(options: LyricsPptxOptions) {
         return runs.map((run, j) => ({
           text: run.text || " ",
           options: {
-            fontFace: "Anton",
+            fontFace: FONT_FACE,
             fontSize: run.size,
             bold: true,
             color: "FFFFFF",
@@ -80,31 +82,32 @@ async function createLyricsPptx(options: LyricsPptxOptions) {
   return pptx;
 }
 
-function lyricsFilename(title: string) {
-  return `${safeFilename(title)}.pptx`;
+function lyricsFilename(options: LyricsPptxOptions) {
+  return exportFilename(options.fileName || options.title || "slides", options.title || "slides");
 }
 
 export async function buildLyricsPptxFile(options: LyricsPptxOptions): Promise<File> {
   const pptx = await createLyricsPptx(options);
   const blob = (await pptx.write({ outputType: "blob" })) as Blob;
-  return new File([blob], lyricsFilename(options.title), { type: PPTX_MIME });
+  return new File([blob], lyricsFilename(options), { type: PPTX_MIME });
 }
 
 export async function exportLyricsPptx(options: LyricsPptxOptions): Promise<void> {
   const pptx = await createLyricsPptx(options);
-  await pptx.writeFile({ fileName: lyricsFilename(options.title) });
+  await pptx.writeFile({ fileName: lyricsFilename(options) });
 }
 
 type TimerPptxOptions = {
   minutes: number;
   label: string;
+  fileName?: string;
   color?: string;
   theme: ThemeId;
   customBg?: string;
 };
 
-function timerFilename(minutes: number) {
-  return `cronometro_${minutes}min.pptx`;
+function timerFilename(options: TimerPptxOptions) {
+  return exportFilename(options.fileName || `cronometro_${options.minutes}min`, `cronometro_${options.minutes}min`);
 }
 
 async function packTimerGifPptx(gif: Blob, gifName: string): Promise<Blob> {
@@ -135,7 +138,7 @@ async function createTimerPptxBlob(options: TimerPptxOptions) {
   const { prepareTimerFonts } = await import("./timerRender");
   await prepareTimerFonts();
 
-  const gifName = `cronometro_${options.minutes}min.gif`;
+  const gifName = timerFilename(options).replace(/\.pptx$/i, ".gif");
   const gif = await encodeTimerGif({
     minutes: options.minutes,
     label: options.label,
@@ -148,7 +151,7 @@ async function createTimerPptxBlob(options: TimerPptxOptions) {
 
 export async function buildTimerPptxFile(options: TimerPptxOptions): Promise<File> {
   const blob = await createTimerPptxBlob(options);
-  return new File([blob], timerFilename(options.minutes), { type: PPTX_MIME });
+  return new File([blob], timerFilename(options), { type: PPTX_MIME });
 }
 
 export async function exportTimerPptx(options: TimerPptxOptions): Promise<void> {
@@ -156,7 +159,7 @@ export async function exportTimerPptx(options: TimerPptxOptions): Promise<void> 
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = timerFilename(options.minutes);
+  link.download = timerFilename(options);
   link.rel = "noopener";
   document.body.appendChild(link);
   link.click();

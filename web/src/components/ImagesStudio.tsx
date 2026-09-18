@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, Download, Images as ImagesIcon, Trash2, Upload } from "lucide-react";
-import { DriveAccountButton, DriveConnect, useDriveAuth } from "./DriveConnect";
+import { DriveAccountButton, DriveConnect, DriveGuestHint, useDriveAuth } from "./DriveConnect";
 import { ViewportDialog } from "./ViewportDialog";
 import { DriveAuthError } from "../lib/drive/auth";
 import { addImages, downloadBlob, downloadImage, listImages, removeImage, type LibraryImage } from "../lib/images";
@@ -63,8 +63,8 @@ export function ImagesStudio({ onBack }: Props) {
       const next = await addImages(files);
       setImages(next);
       notify(files.length === 1 ? "Imagem enviada para a biblioteca." : `${files.length} imagens enviadas.`);
-    } catch {
-      notify("Não foi possível enviar as imagens.");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Não foi possível enviar as imagens.");
     } finally {
       setBusy(false);
     }
@@ -131,7 +131,7 @@ export function ImagesStudio({ onBack }: Props) {
       <div className="mx-auto w-full min-w-0 max-w-[1500px] space-y-5 p-4 sm:p-6">
         <p className="max-w-2xl text-sm leading-relaxed text-mist">
           Biblioteca de fundos no Google Drive. Qualquer conta pode ver e baixar; enviar e excluir fica só com
-          multimidiaconecte. Pasta:{" "}
+          multimidiaconecte@gmail.com. Pasta:{" "}
           <a
             href="https://drive.google.com/drive/folders/1ebsPPjcQjBdvrF47OSm2BCwhsig_cKdH"
             target="_blank"
@@ -152,83 +152,88 @@ export function ImagesStudio({ onBack }: Props) {
         ) : needsAuth ? (
           <DriveConnect
             title="Conectar as imagens"
-            description="Entre com o Google para ver os fundos. Enviar e excluir só com a conta multimidiaconecte."
+            description="Entre com o Google para ver os fundos. Enviar e excluir só com multimidiaconecte@gmail.com."
             onConnected={() => void refresh()}
           />
-        ) : images.length === 0 ? (
-          canManage ? (
-            <DropZone
-              dragging={dragging}
-              setDragging={setDragging}
-              onFiles={(files) => void ingest(files)}
-              onPick={() => inputRef.current?.click()}
-            />
-          ) : (
-            <p className="text-sm text-mist">A pasta ainda está vazia.</p>
-          )
         ) : (
-          <div
-            onDragEnter={(e) => {
-              if (!canManage) return;
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragOver={(e) => {
-              if (!canManage) return;
-              e.preventDefault();
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e) => {
-              if (!canManage) return;
-              e.preventDefault();
-              setDragging(false);
-              void ingest(e.dataTransfer.files);
-            }}
-            className={`grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 ${
-              dragging ? "rounded-2xl ring-2 ring-gold" : ""
-            }`}
-          >
-            {images.map((img) => (
-              <article key={img.id} className="overflow-hidden rounded-xl border border-white/10 bg-ink-soft">
-                <div className="relative" style={{ aspectRatio: "16 / 9" }}>
-                  <img src={img.url} alt={img.name} className="h-full w-full object-cover" />
-                </div>
-                <div className="flex items-center gap-2 px-3 py-2">
-                  <p className="min-w-0 flex-1 truncate text-sm text-cream">{img.name}</p>
+          <>
+            <DriveGuestHint />
+            {images.length === 0 ? (
+              canManage ? (
+                <DropZone
+                  dragging={dragging}
+                  setDragging={setDragging}
+                  onFiles={(files) => void ingest(files)}
+                  onPick={() => inputRef.current?.click()}
+                />
+              ) : (
+                <p className="text-sm text-mist">A pasta ainda está vazia.</p>
+              )
+            ) : (
+              <div
+                onDragEnter={(e) => {
+                  if (!canManage) return;
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragOver={(e) => {
+                  if (!canManage) return;
+                  e.preventDefault();
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  if (!canManage) return;
+                  e.preventDefault();
+                  setDragging(false);
+                  void ingest(e.dataTransfer.files);
+                }}
+                className={`grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 ${
+                  dragging ? "rounded-2xl ring-2 ring-gold" : ""
+                }`}
+              >
+                {images.map((img) => (
+                  <article key={img.id} className="overflow-hidden rounded-xl border border-white/10 bg-ink-soft">
+                    <div className="relative" style={{ aspectRatio: "16 / 9" }}>
+                      <img src={img.url} alt={img.name} className="h-full w-full object-cover" />
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-2">
+                      <p className="min-w-0 flex-1 truncate text-sm text-cream">{img.name}</p>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void onDownload(img)}
+                        className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-cream disabled:opacity-40"
+                        title="Baixar"
+                      >
+                        <Download size={16} />
+                      </button>
+                      {canManage ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setPendingDelete(img)}
+                          className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-red-300 disabled:opacity-40"
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+                {canManage ? (
                   <button
                     type="button"
-                    disabled={busy}
-                    onClick={() => void onDownload(img)}
-                    className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-cream disabled:opacity-40"
-                    title="Baixar"
+                    onClick={() => inputRef.current?.click()}
+                    className="flex min-h-[8rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gold/40 text-sm text-gold hover:bg-gold/10"
                   >
-                    <Download size={16} />
+                    <Upload size={18} />
+                    Enviar imagens
                   </button>
-                  {canManage ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setPendingDelete(img)}
-                      className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-red-300 disabled:opacity-40"
-                      title="Excluir"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  ) : null}
-                </div>
-              </article>
-            ))}
-            {canManage ? (
-              <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                className="flex min-h-[8rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gold/40 text-sm text-gold hover:bg-gold/10"
-              >
-                <Upload size={18} />
-                Enviar imagens
-              </button>
-            ) : null}
-          </div>
+                ) : null}
+              </div>
+            )}
+          </>
         )}
       </div>
 

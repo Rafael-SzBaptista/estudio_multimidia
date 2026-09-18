@@ -5,6 +5,26 @@ export const FONT_SIZE = 64.5;
 export const TITLE_SIZE = 72;
 export const AUTHOR_SIZE = 42;
 export const MAX_SLIDE_LINES = 5;
+/** Twentieth Century no Windows/PowerPoint — mesma spec de tech/gerar_slides.py */
+export const FONT_FACE = "Tw Cen MT";
+
+function slideCanvasFont(size: number): string {
+  return `700 ${size}pt "${FONT_FACE}", "Twentieth Century", sans-serif`;
+}
+
+export async function prepareSlideFont(): Promise<void> {
+  if (typeof document === "undefined") return;
+  try {
+    await Promise.all([
+      document.fonts.load(`700 ${FONT_SIZE}pt "${FONT_FACE}"`),
+      document.fonts.load(`700 ${TITLE_SIZE}pt "${FONT_FACE}"`),
+      document.fonts.load(`700 ${AUTHOR_SIZE}pt "${FONT_FACE}"`),
+    ]);
+    await document.fonts.ready;
+  } catch {
+    /* fonte do sistema pode já estar disponível */
+  }
+}
 
 export function plainLine(text: string, size: number): SlideLine {
   return { runs: text ? [{ text, size }] : [] };
@@ -72,7 +92,7 @@ function textWidth(text: string, size: number): number {
   if (!measureCanvas) measureCanvas = document.createElement("canvas");
   const ctx = measureCanvas.getContext("2d");
   if (!ctx) return text.length * size * 0.52;
-  ctx.font = `400 ${size}pt "Anton", sans-serif`;
+  ctx.font = slideCanvasFont(size);
   return ctx.measureText(text).width;
 }
 
@@ -177,5 +197,15 @@ export function safeFilename(title: string): string {
     .replace(/[^\w\s\-À-ÿ]+/gu, "")
     .trim()
     .replace(/\s+/g, "_");
-  return (name.slice(0, 80) || "slides");
+  return name.slice(0, 80) || "slides";
+}
+
+export function exportFilename(name: string, fallback = "slides"): string {
+  const cleaned = name
+    .replace(/\.(pptx?|odp)$/i, "")
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return `${cleaned || fallback}.pptx`;
 }

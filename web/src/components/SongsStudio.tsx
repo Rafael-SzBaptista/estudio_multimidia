@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, Download, ExternalLink, Music, Search, Trash2, Upload } from "lucide-react";
-import { DriveAccountButton, DriveConnect, useDriveAuth } from "./DriveConnect";
+import { DriveAccountButton, DriveConnect, DriveGuestHint, useDriveAuth } from "./DriveConnect";
 import { ViewportDialog } from "./ViewportDialog";
 import { DriveAuthError } from "../lib/drive/auth";
 import { downloadBlob } from "../lib/images";
@@ -137,7 +137,7 @@ export function SongsStudio({ onBack }: Props) {
       <div className="mx-auto w-full min-w-0 max-w-[1500px] space-y-5 p-4 sm:p-6">
         <p className="max-w-2xl text-sm leading-relaxed text-mist">
           Acervo de apresentações no Google Drive. Qualquer conta pode abrir e baixar; enviar e excluir fica só com
-          multimidiaconecte. A pasta{" "}
+          multimidiaconecte@gmail.com. A pasta{" "}
           <a
             href="https://drive.google.com/drive/folders/1wDvc3zWeVTdgiUT_yfNbxN0fo_nQLPxh"
             target="_blank"
@@ -170,72 +170,77 @@ export function SongsStudio({ onBack }: Props) {
         ) : needsAuth ? (
           <DriveConnect
             title="Conectar o acervo"
-            description="Entre com o Google para ver as apresentações. Enviar e excluir só com a conta multimidiaconecte."
+            description="Entre com o Google para ver as apresentações. Enviar e excluir só com multimidiaconecte@gmail.com."
             onConnected={() => void refresh()}
           />
-        ) : filtered.length === 0 ? (
-          <p className="text-sm text-mist">{query ? "Nenhuma música com esse nome." : "A pasta ainda está vazia."}</p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((song) => (
-              <article key={song.id} className="flex overflow-hidden rounded-xl border border-white/10 bg-ink-soft">
-                <div className="relative w-28 shrink-0 bg-black sm:w-36">
-                  <img src={song.thumbnail} alt="" className="h-full w-full object-cover" />
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col justify-between p-3">
-                  <div>
-                    <p className="text-[10px] tracking-widest text-gold uppercase">
-                      {song.kind === "slides" ? "Google Slides" : "PowerPoint"}
-                    </p>
-                    <h2 className="font-display mt-1 truncate text-lg text-cream">{song.name}</h2>
-                  </div>
-                  <div className="mt-3 flex items-center gap-1">
-                    {song.webViewLink ? (
-                      <a
-                        href={song.webViewLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-cream"
-                        title="Abrir no Drive"
-                      >
-                        <ExternalLink size={16} />
-                      </a>
-                    ) : null}
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void onDownload(song)}
-                      className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-cream disabled:opacity-40"
-                      title="Baixar"
-                    >
-                      <Download size={16} />
-                    </button>
-                    {canManage ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => setPendingDelete(song)}
-                        className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-red-300 disabled:opacity-40"
-                        title="Excluir"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </article>
-            ))}
-            {canManage ? (
-              <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                className="flex min-h-[7rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gold/40 text-sm text-gold hover:bg-gold/10"
-              >
-                <Music size={18} />
-                Enviar apresentação
-              </button>
-            ) : null}
-          </div>
+          <>
+            <DriveGuestHint />
+            {filtered.length === 0 ? (
+              <p className="text-sm text-mist">{query ? "Nenhuma música com esse nome." : "A pasta ainda está vazia."}</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {filtered.map((song) => (
+                  <article key={song.id} className="flex overflow-hidden rounded-xl border border-white/10 bg-ink-soft">
+                    <div className="relative w-28 shrink-0 bg-black sm:w-36">
+                      <img src={song.thumbnail} alt="" className="h-full w-full object-cover" />
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col justify-between p-3">
+                      <div>
+                        <p className="text-[10px] tracking-widest text-gold uppercase">
+                          {song.kind === "slides" ? "Google Slides" : "PowerPoint"}
+                        </p>
+                        <h2 className="font-display mt-1 truncate text-lg text-cream">{song.name}</h2>
+                      </div>
+                      <div className="mt-3 flex items-center gap-1">
+                        {song.webViewLink ? (
+                          <a
+                            href={song.webViewLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-cream"
+                            title="Abrir no Drive"
+                          >
+                            <ExternalLink size={16} />
+                          </a>
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void onDownload(song)}
+                          className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-cream disabled:opacity-40"
+                          title="Baixar"
+                        >
+                          <Download size={16} />
+                        </button>
+                        {canManage ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setPendingDelete(song)}
+                            className="rounded-full p-1.5 text-mist transition hover:bg-white/5 hover:text-red-300 disabled:opacity-40"
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </article>
+                ))}
+                {canManage ? (
+                  <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    className="flex min-h-[7rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gold/40 text-sm text-gold hover:bg-gold/10"
+                  >
+                    <Music size={18} />
+                    Enviar apresentação
+                  </button>
+                ) : null}
+              </div>
+            )}
+          </>
         )}
       </div>
 

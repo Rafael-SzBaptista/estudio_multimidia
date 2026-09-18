@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { HardDrive } from "lucide-react";
-import { hasDriveAccess, hasDriveClient } from "../lib/drive/config";
+import { hasDriveAccess, hasDriveClient, DRIVE_OWNER_EMAIL } from "../lib/drive/config";
 import {
   canManageDriveLibrary,
   isDriveSignedIn,
@@ -89,5 +89,16 @@ export function DriveAccountButton() {
     >
       {auth.email ? `Sair · ${auth.email}` : "Sair do Drive"}
     </button>
+  );
+}
+
+export function DriveGuestHint() {
+  const auth = useDriveAuth();
+  if (!auth.signedIn || auth.canManage) return null;
+  return (
+    <p className="rounded-2xl border border-white/10 bg-ink-soft px-4 py-3 text-sm leading-relaxed text-mist">
+      Conectado como <span className="text-cream">{auth.email || "outra conta"}</span>. Só{" "}
+      <span className="text-gold">{DRIVE_OWNER_EMAIL}</span> pode enviar ou excluir arquivos nestas pastas.
+    </p>
   );
 }

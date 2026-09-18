@@ -7,6 +7,7 @@ import {
   hasDriveServerAuth,
   isAllowedFolder,
   isDriveOwner,
+  lockLibraryPermissions,
   verifyGoogleUser,
 } from "../server/googleDrive";
 
@@ -71,8 +72,15 @@ export default async function handler(req: VercelReq, res: VercelRes) {
   const action = query(req, "action") || "list";
   const writing = (req.method === "POST" && action === "session") || req.method === "DELETE" || action === "delete";
   if (writing && !isDriveOwner(user.email)) {
-    res.status(403).json({ error: "Só a conta dona da pasta pode enviar ou excluir." });
+    res.status(403).json({ error: "Só a conta multimidiaconecte pode enviar ou excluir." });
     return;
+  }
+  if (writing) {
+    try {
+      await lockLibraryPermissions();
+    } catch {
+      /* a escrita segue mesmo se o ajuste de permissão falhar */
+    }
   }
 
   try {
