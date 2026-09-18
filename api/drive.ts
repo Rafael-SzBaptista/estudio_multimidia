@@ -22,7 +22,7 @@ type VercelRes = {
   json: (body: unknown) => void;
   send: (body: unknown) => void;
   setHeader: (name: string, value: string) => void;
-  end: () => void;
+  end: (body?: Uint8Array | string) => void;
 };
 
 function header(req: VercelReq, name: string) {
@@ -117,9 +117,9 @@ export default async function handler(req: VercelReq, res: VercelRes) {
         : `files/${id}?alt=media`;
       const response = await driveRequest(path);
       if (!response.ok) throw new Error(await response.text());
-      const buffer = Buffer.from(await response.arrayBuffer());
+      const bytes = new Uint8Array(await response.arrayBuffer());
       res.setHeader("Content-Type", response.headers.get("content-type") || "application/octet-stream");
-      res.status(200).send(buffer);
+      res.status(200).end(bytes);
       return;
     }
 
